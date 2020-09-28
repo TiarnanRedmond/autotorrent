@@ -122,7 +122,7 @@ class RTorrentClient(BaseClient):
         return set(x.lower() for x in self.proxy.download_list())
 
     def _get_mtime(self, path):
-        return int(os.stat(path).st_mtime)
+        return int(os.stat(path.encode("utf-8")).st_mtime)
 
     def add_torrent(self, torrent, destination_path, files, fast_resume=True):
         """
