@@ -97,20 +97,10 @@ class QBittorrentClient(BaseClient):
 
         encoded_torrent = bencode(torrent)
 
-        if b'files' in torrent[b'info']:
-            movable_files = os.listdir(destination_path)
-            tmp_folder = os.path.join(destination_path, TMP_FOLDER_NAME)
-            os.mkdir(tmp_folder)
-
-            for f in movable_files:
-                os.rename(os.path.join(destination_path, f), os.path.join(tmp_folder, f))
-
-            os.rename(tmp_folder, os.path.join(destination_path, name))
-
         self._login_check()
         self._session.post(urljoin(self.url, 'api/v2/torrents/add'), files={'torrents': encoded_torrent}, data={
-            'savepath': destination_path,
             'category': self.category,
+            'autoTMM': True,
             'skip_checking': (fast_resume and 'true' or 'false'),
         })
 

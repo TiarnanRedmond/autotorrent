@@ -3,7 +3,6 @@ from __future__ import division, unicode_literals
 import os
 import hashlib
 import logging
-import platform
 
 from collections import defaultdict
 
@@ -350,88 +349,8 @@ class AutoTorrent(object):
                     os.symlink(f['actual_path'], destination)
                 elif self.link_type == 'hard':
                     os.link(f['actual_path'], destination)
-                elif self.link_type == 'ref':
-                    self.reflink(f['actual_path'], destination)
                 else:
                     raise UnknownLinkTypeException('%r is not a known link type' % self.link_type)
-
-    def reflink(self, path, destination):
-        """
-        Perform a reflink (if supported, currently only xfs, apfs, btrfs is)
-        This code is modified from dvc (https://github.com/iterative/dvc/blob/f4bec650eddc8874b3f7ab2f8b34bc5dfe60fd49/dvc/system.py#L105).
-        These libraries are available under the Apache 2.0 license, which can be obtained from http://www.apache.org/licenses/LICENSE-2.0.
-        """
-        system = platform.system()
-        logger.debug('platform is %r', system)
-        try:
-           if system == "Windows":
-               ret = self.reflink_windows(path, destination)
-           elif system == "Darwin":
-               ret = self.reflink_darwin(path, destination)
-           elif system == "Linux":
-               ret = self.reflink_linux(path, destination)
-           else:
-               ret = -1
-        except IOError:
-               ret = -1
-        
-        if ret != 0:
-               raise Exception("reflink is not supported")
-
-
-    def reflink_linux(self, path, destination):
-        """
-        Linux only reflink via syscall FICLONE on supported filesystems
-        """
-        import os
-        import fcntl
-
-        FICLONE = 0x40049409
-
-        try:
-            ret = 255
-            with open(path, "r") as s, open(destination, "w+") as d:
-                ret = fcntl.ioctl(d.fileno(), FICLONE, s.fileno())
-        finally:
-            if ret != 0:
-                os.unlink(destination)
-
-        return ret
-
-    def reflink_windows(self, path, destination):
-        return -1
-
-    def reflink_darwin(self, path, destination):
-        import ctypes
-
-        LIBC = "libc.dylib"
-        LIBC_FALLBACK = "/usr/lib/libSystem.dylib"
-        try:
-            clib = ctypes.CDLL(LIBC)
-        except OSError as exc:
-            logger.debug(
-                "unable to access '{}' (errno '{}'). "
-                "Falling back to '{}'.".format(LIBC, exc.errno, LIBC_FALLBACK)
-            )
-            if exc.errno != errno.ENOENT:
-                raise
-            # NOTE: trying to bypass System Integrity Protection (SIP)
-            clib = ctypes.CDLL(LIBC_FALLBACK)
-
-        if not hasattr(clib, "clonefile"):
-            return -1
-
-        clonefile = clib.clonefile
-        clonefile.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_int]
-        clonefile.restype = ctypes.c_int
-
-        return clonefile(
-            ctypes.c_char_p(path.encode("utf-8")),
-            ctypes.c_char_p(destination.encode("utf-8")),
-            ctypes.c_int(0),
-        )
-
-
 
     def rewrite_hashed_files(self, destination_path, files):
         """
@@ -513,6 +432,8 @@ class AutoTorrent(object):
             missing_percent = (missing_size / (found_size + missing_size)) * 100
         found_percent = 100 - missing_percent
         would_not_add = missing_size and missing_percent > self.add_limit_percent or missing_size > self.add_limit_size
+        destination_path = os.path.join(self.store_path, os.path.splitext(os.path.basename(path))[0])
+        file_basename = torrent[b'info'][b'name'].decode()
 
         if dry_run:
             return found_size, missing_size, would_not_add, [f['actual_path'] for f in files['files'] if f.get('actual_path')]
@@ -524,12 +445,21 @@ class AutoTorrent(object):
 
         if files['mode'] == 'link' or files['mode'] == 'hash':
             logger.info('Preparing torrent using link mode')
-            destination_path = os.path.join(self.store_path, os.path.splitext(os.path.basename(path))[0])
 
-            if os.path.isdir(destination_path):
-                logger.info('Folder exist but torrent is not seeded %s' % destination_path)
-                self.print_status(Status.FOLDER_EXIST_NOT_SEEDING, path, 'The folder exist, but is not seeded by torrentclient')
-                return Status.FOLDER_EXIST_NOT_SEEDING
+            if b'files' in torrent[b'info']:
+                destination_path = os.path.join(self.store_path, file_basename)
+
+                if os.path.isdir(destination_path):
+                    logger.info('Folder exist but torrent is not seeded %s' % destination_path)
+                    self.print_status(Status.FOLDER_EXIST_NOT_SEEDING, path, 'The folder exist, but is not seeded by torrentclient')
+                    return Status.FOLDER_EXIST_NOT_SEEDING
+            else:
+                destination_path = self.store_path
+
+                if os.path.isfile(os.path.join(self.store_path, file_basename)):
+                    logger.info('File exist but torrent is not seeded %s' % destination_path)
+                    self.print_status(Status.FOLDER_EXIST_NOT_SEEDING, path, 'The file exist, but is not seeded by torrentclient')
+                    return Status.FOLDER_EXIST_NOT_SEEDING
 
             self.link_files(destination_path, files['files'])
         elif files['mode'] == 'exact':
