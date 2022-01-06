@@ -284,6 +284,40 @@ Yes, this can be done by prefixing a name of your choosing, with ``client-``. Fo
 ::
     autotorrent -l goodclient
 
+
+Docker
+------
+
+Volumes
+~~~~~~~
+
+- ``/config`` - Where the config and database are stored
+- ``/torrents`` - A pseudo torrent "watch" folder. All ``.torrent`` files in it will be parsed
+- ``/downloads`` - Your torrent downloads directory
+- ``/virtual-seed`` - Where the cross seed torrent data will be linked to
+
+
+Configuration
+~~~~~~~~~~~~~
+
+The following settings in autotorrent.conf should be set as such:
+
+::
+
+    [general]
+    store_path = /virtual-seed/
+ 
+    [disks]
+    disk1 = /downloads/
+ 
+Run
+~~~
+
+Run the container and use ``EXTRA_ARGS`` to append any arguments, such as ``--delete_torrents``.
+
+``docker run -v /my/volumes/autotorrent:/config -v /my/volumes/watch:/torrents -v /my/volumes/downloads:/downloads -v /my/volumes/cross-seeded-data:/downloads -e EXTRA_ARGS="-d" charlocharlie/autotorrent``
+
+
 License
 -------
 
