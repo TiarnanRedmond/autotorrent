@@ -279,7 +279,7 @@ class Database(object):
         key = '%s|%s' % (size, '|'.join(names))
         logger.debug('Keyify: %s' % key)
         
-        return hashlib.sha256(key.encode('utf-8')).hexdigest()
+        return hashlib.sha256(key.encode('utf-8', 'surrogateescape')).hexdigest()
     
     def normalize_filename(self, filename):
         """

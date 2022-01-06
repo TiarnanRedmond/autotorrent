@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import shutil
+import sys
 
 from six.moves import configparser, input
 
@@ -209,7 +210,11 @@ def commandline_handler():
             at.populate_torrents_seeded()
         
         for torrent in args.addfile:
-            result = at.handle_torrentfile(os.path.join(current_path, torrent), dry_run)
+            try:
+                result = at.handle_torrentfile(os.path.join(current_path, torrent), dry_run)
+            except:
+                print("Unexpected error:", sys.exc_info()[0])
+
             if dry_run:
                 dry_run_data.append({
                     'torrent': torrent,

@@ -208,7 +208,7 @@ class AutoTorrent(object):
                         result = []
                         for f in torrent[b'info'][b'files']:
                             orig_path = [self.try_decode(x) for x in f[b'path']]
-                            p = os.path.join(path, *orig_path)
+                            p = os.path.join(path, *orig_path).encode('utf-8')
 
                             if not os.path.isfile(p):
                                 logger.debug('File %r does not exist' % p)
@@ -333,12 +333,13 @@ class AutoTorrent(object):
         """
         Links the files to the destination_path if they are found.
         """
-        if not os.path.isdir(destination_path):
-            os.makedirs(destination_path)
+        if not os.path.isdir(destination_path.encode("utf-8")):
+            os.makedirs(destination_path.encode("utf-8"))
 
         for f in files:
             if f['completed']:
                 destination = os.path.join(destination_path, *f['path'])
+                destination = destination.encode("utf-8")
 
                 file_path = os.path.dirname(destination)
                 if not os.path.isdir(file_path):
@@ -348,11 +349,11 @@ class AutoTorrent(object):
                 logger.debug('Making %s link from %r to %r' % (self.link_type, f['actual_path'], destination))
 
                 if self.link_type == 'soft':
-                    os.symlink(f['actual_path'], destination)
+                    os.symlink(f['actual_path'].encode("utf-8"), destination)
                 elif self.link_type == 'hard':
-                    os.link(f['actual_path'], destination)
+                    os.link(f['actual_path'].encode("utf-8"), destination)
                 elif self.link_type == 'ref':
-                    self.reflink(f['actual_path'], destination)
+                    self.reflink(f['actual_path'].encode("utf-8"), destination)
                 else:
                     raise UnknownLinkTypeException('%r is not a known link type' % self.link_type)
 
